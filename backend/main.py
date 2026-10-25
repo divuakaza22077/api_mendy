@@ -329,12 +329,12 @@ async def ship(request: ShipRequest, http_request: Request, api_key: ApiKey) -> 
             }
         if not request.owner or not request.repo:
             raise HTTPException(status_code=422, detail="owner and repo are required when dry_run=false")
-        _authorize(http_request, api_key, write=True)
         if not settings.can_write_repository(request.owner, request.repo):
             raise HTTPException(
                 status_code=403,
                 detail="Real GitHub writes are disabled or the repository is not on the server allowlist",
             )
+        _authorize(http_request, api_key, write=True)
         async with GitHubClient(settings, client=_shared_github_client(http_request)) as github:
             scanned = await asyncio.wait_for(
                 github.scan_repository(request.owner, request.repo, request.base), timeout=45
@@ -439,8 +439,6 @@ def _shared_github_client(request: Request) -> Any:
 
 
 def _authorize(request: Request | None, presented: str | None = None, write: bool = False) -> None:
-    if not settings.github_token:
-        raise HTTPException(status_code=503, detail="GITHUB_TOKEN must be configured for live GitHub operations")
     if not settings.api_key:
         raise HTTPException(status_code=503, detail="API_MEND_API_KEY must be configured for live GitHub operations")
     if request is None:
@@ -451,3 +449,5 @@ def _authorize(request: Request | None, presented: str | None = None, write: boo
         presented = authorization[7:].strip()
     if not presented or not hmac.compare_digest(presented, settings.api_key):
         raise HTTPException(status_code=401, detail="Valid API key required")
+    if not settings.github_token:
+        raise HTTPException(status_code=503, detail="GITHUB_TOKEN must be configured for live GitHub operations")
