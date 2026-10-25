@@ -20,6 +20,7 @@ def verify_patch(
     after: dict[str, str],
     plan: PatchPlan,
     old_residue: list[str],
+    contract_residue: list[str] | None = None,
 ) -> VerificationReport:
     gates: list[Gate] = []
     exact_ok = True
@@ -76,13 +77,19 @@ def verify_patch(
         )
     )
 
-    contract_ok = all("amount_cents" not in after_text for after_text in after.values())
+    contract_residue = contract_residue or []
+    contract_hits = [needle for needle in contract_residue if any(needle in source for source in after.values())]
+    contract_ok = not contract_hits
     gates.append(
         Gate(
             id="G4",
             name="Contract shape",
             status="pass" if contract_ok else "fail",
-            details=["strict fixture contract has no legacy amount_cents field"],
+            details=[
+                "strict fixture contract has no legacy fields"
+                if contract_ok
+                else f"legacy contract fields: {contract_hits}"
+            ],
         )
     )
 

@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse
 
 from backend.config import get_settings
 from backend.github_client import GitHubClient, GitHubError
+from backend.graph import graph_from_sites
 from backend.models import PlanRequest, ScanRequest, ShipRequest, SseEvent
 from backend.muscles.analyzer import analyze_files
 from backend.scenarios import (
@@ -68,11 +69,19 @@ async def scan(request: ScanRequest) -> dict[str, object]:
         async with GitHubClient(settings) as github:
             result = await github.scan_repository(request.owner, request.repo, request.branch)
         call_sites = analyze_files(result["files"])
+        dependency_graph = graph_from_sites(
+            request.owner,
+            request.repo,
+            result["head_sha"],
+            call_sites,
+            result["scanned_files"],
+        )
         return {
             "branch": result["branch"],
             "head_sha": result["head_sha"],
             "scanned_files": result["scanned_files"],
             "sites": [site.model_dump() for site in call_sites],
+            "graph": dependency_graph.model_dump(),
             "architecture": "Rust-backed ast-grep-py",
         }
     except GitHubError as exc:
@@ -108,7 +117,8 @@ async def plan(request: PlanRequest) -> dict[str, object]:
             scenario["before"],
             patched,
             patch_plan(request.scenario_id),
-            ["stripe.Charge.create", "/v1/charges", "amount_cents"],
+            _old_residue(request.scenario_id),
+            _contract_residue(request.scenario_id),
         )
         return {
             "scenario": request.scenario_id,
@@ -136,7 +146,8 @@ async def ship(request: ShipRequest) -> dict[str, object]:
                 scenario["before"],
                 patched,
                 patch_plan(request.scenario_id),
-                ["stripe.Charge.create", "/v1/charges", "amount_cents"],
+                _old_residue(request.scenario_id),
+                _contract_residue(request.scenario_id),
             ).model_dump(),
         }
     if not request.owner or not request.repo:
@@ -182,3 +193,19 @@ async def events(run_id: str) -> StreamingResponse:
             await asyncio.sleep(0.05)
 
     return StreamingResponse(stream(), media_type="text/event-stream")
+
+
+def _old_residue(scenario_id: str) -> list[str]:
+    return {
+        "stripe-paymentintents": ["stripe.Charge.create", "/v1/charges", "amount_cents"],
+        "openai-tools": ["openai.ChatCompletion.create", "functions", "function_call"],
+        "twilio-signature-v2": ["X-Twilio-Signature\"", "str(request.url)"],
+    }[scenario_id]
+
+
+def _contract_residue(scenario_id: str) -> list[str]:
+    return {
+        "stripe-paymentintents": ["amount_cents"],
+        "openai-tools": ["functions=", "function_call=", ".get(\"function_call\")"],
+        "twilio-signature-v2": ["X-Twilio-Signature\""],
+    }[scenario_id]

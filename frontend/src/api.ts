@@ -14,19 +14,39 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-async function offlineFixture(): Promise<{ simulate: Simulated; plan: Plan }> {
-  const response = await fetch("/fixtures/stripe.json");
+async function offlineFixture(scenarioId: string): Promise<{ simulate: Simulated; plan: Plan }> {
+  const fixtureName = scenarioId === "stripe-paymentintents" ? "stripe" : scenarioId;
+  const response = await fetch(`/fixtures/${fixtureName}.json`);
   if (!response.ok) throw new Error("Offline fixture is unavailable");
-  return response.json() as Promise<{ simulate: Simulated; plan: Plan }>;
+  const raw = await response.json() as {
+    id: string;
+    before: Record<string, string>;
+    after?: Record<string, string>;
+    changes: Simulated["changes"];
+    sites: Simulated["sites"];
+    impacts: Simulated["impacts"];
+    graph: Simulated["graph"];
+    patch_plan: Plan["plan"];
+    verification: Plan["gates"];
+  };
+  const diffs = Object.entries(raw.before).flatMap(([path, before]) => {
+    const after = raw.after?.[path];
+    if (after === undefined || after === before) return [];
+    return [{ path, before, after }];
+  });
+  return {
+    simulate: { scenario: raw.id, changes: raw.changes, sites: raw.sites, impacts: raw.impacts, graph: raw.graph },
+    plan: { scenario: raw.id, plan: raw.patch_plan, diffs, gates: raw.verification },
+  };
 }
 
 export async function loadSimulation(scenarioId: string): Promise<Simulated> {
-  if (offline) return (await offlineFixture()).simulate;
+  if (offline) return (await offlineFixture(scenarioId)).simulate;
   return request<Simulated>(`/simulate/${scenarioId}`, { method: "POST" });
 }
 
 export async function loadPlan(scenarioId: string): Promise<Plan> {
-  if (offline) return (await offlineFixture()).plan;
+  if (offline) return (await offlineFixture(scenarioId)).plan;
   return request<Plan>("/plan", { method: "POST", body: JSON.stringify({ scenario_id: scenarioId }) });
 }
 

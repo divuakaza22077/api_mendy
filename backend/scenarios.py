@@ -15,11 +15,19 @@ from backend.models import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-FIXTURE_PATH = ROOT / "fixtures" / "stripe.json"
 
 
-def load_fixture() -> dict[str, Any]:
-    return json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+def load_fixture(scenario_id: str) -> dict[str, Any]:
+    fixture_names = {
+        "stripe-paymentintents": "stripe.json",
+        "openai-tools": "openai-tools.json",
+        "twilio-signature-v2": "twilio-signature-v2.json",
+    }
+    fixture_name = fixture_names.get(scenario_id)
+    if fixture_name is None:
+        raise KeyError(scenario_id)
+    fixture_path = ROOT / "fixtures" / fixture_name
+    return json.loads(fixture_path.read_text(encoding="utf-8"))
 
 
 def summaries() -> list[ScenarioSummary]:
@@ -29,12 +37,27 @@ def summaries() -> list[ScenarioSummary]:
             vendor="stripe",
             title="Stripe Charges → PaymentIntents",
             stylized=True,
+            description="A stylized nested-field migration layered on Stripe's real PaymentIntents migration.",
+        ),
+        ScenarioSummary(
+            id="openai-tools",
+            vendor="openai",
+            title="OpenAI functions → tools",
+            stylized=False,
+            description="Migrate legacy Chat Completions function calling to the tools protocol.",
+        ),
+        ScenarioSummary(
+            id="twilio-signature-v2",
+            vendor="twilio",
+            title="Twilio webhook signature hardening",
+            stylized=True,
+            description="A stylized signature-header migration that demonstrates proxy-safe webhook validation.",
         )
     ]
 
 
 def get_scenario(scenario_id: str) -> dict[str, Any]:
-    scenario = load_fixture()
+    scenario = load_fixture(scenario_id)
     if scenario["id"] != scenario_id:
         raise KeyError(scenario_id)
     return scenario

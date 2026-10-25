@@ -1,0 +1,80 @@
+{
+  "id": "openai-tools",
+  "vendor": "openai",
+  "title": "OpenAI functions → tools",
+  "stylized": false,
+  "before": {
+    "app/ai/assistant.py": "import json\nimport openai\n\ndef route(msgs, schema):\n    resp = openai.ChatCompletion.create(\n        model=\"gpt-4o-mini\",\n        messages=msgs,\n        functions=[{\"name\": \"get_order\", \"parameters\": schema}],\n        function_call=\"auto\",\n    )\n    call = resp[\"choices\"][0][\"message\"].get(\"function_call\")\n    return json.loads(call[\"arguments\"]) if call else None\n",
+    "web/src/api/chat.ts": "export async function chat(messages: unknown[], schema: unknown) {\n  return fetch(\"https://api.openai.com/v1/chat/completions\", {\n    method: \"POST\",\n    body: JSON.stringify({ model: \"gpt-4o-mini\", messages, functions: [{ name: \"get_order\", parameters: schema }], function_call: \"auto\" }),\n  });\n}\n"
+  },
+  "changes": [
+    {
+      "id": "chg_openai_001",
+      "vendor": "openai",
+      "change_type": "sdk_method_renamed",
+      "severity": "breaking",
+      "sdk_symbol_from": "openai.ChatCompletion.create",
+      "sdk_symbol_to": "client.chat.completions.create",
+      "migration_hint": "Use an instantiated OpenAI client and the current Chat Completions method.",
+      "evidence_quote": "The v1 migration moves callers to instantiated clients.",
+      "evidence_url": "https://github.com/openai/openai-python/discussions/742",
+      "confidence": 0.98
+    },
+    {
+      "id": "chg_openai_002",
+      "vendor": "openai",
+      "change_type": "field_renamed",
+      "severity": "breaking",
+      "field_from": "functions",
+      "field_to": "tools",
+      "migration_hint": "Wrap the function schema in a tools entry.",
+      "evidence_quote": "Use tools and tool_choice for the current function calling protocol.",
+      "evidence_url": "https://platform.openai.com/docs/guides/function-calling",
+      "confidence": 0.96
+    },
+    {
+      "id": "chg_openai_003",
+      "vendor": "openai",
+      "change_type": "field_moved",
+      "severity": "breaking",
+      "field_from": "message.function_call",
+      "field_to": "message.tool_calls[].function",
+      "migration_hint": "Read the first tool call and its function arguments.",
+      "evidence_quote": "Responses expose tool_calls with a function payload.",
+      "evidence_url": "https://platform.openai.com/docs/api-reference/chat/create",
+      "confidence": 0.94
+    }
+  ],
+  "sites": [
+    {"id":"site_openai_py","file":"app/ai/assistant.py","language":"python","kind":"sdk_call","vendor":"openai","callee":"openai.ChatCompletion.create","function":"route","start_line":5,"end_line":10,"snippet":"openai.ChatCompletion.create(model=\"gpt-4o-mini\", functions=[...], function_call=\"auto\")","payload_keys":["functions","function_call"]},
+    {"id":"site_openai_ts","file":"web/src/api/chat.ts","language":"typescript","kind":"http_call","vendor":"openai","callee":"fetch","url":"https://api.openai.com/v1/chat/completions","function":"chat","start_line":2,"end_line":6,"snippet":"fetch(\"https://api.openai.com/v1/chat/completions\", { body: JSON.stringify({ functions: [...] }) })","payload_keys":["functions","function_call"]}
+  ],
+  "impacts": [
+    {"change_id":"chg_openai_001","site_id":"site_openai_py","reason":"calls changed SDK method"},
+    {"change_id":"chg_openai_002","site_id":"site_openai_py","reason":"sends changed field"},
+    {"change_id":"chg_openai_003","site_id":"site_openai_py","reason":"reads removed/renamed field"},
+    {"change_id":"chg_openai_002","site_id":"site_openai_ts","reason":"sends changed field"}
+  ],
+  "patch_plan": {
+    "edits": [
+      {"file":"app/ai/assistant.py","site_id":"site_openai_py","search":"import openai","replace":"from openai import OpenAI\n\nclient = OpenAI()","change_ids":["chg_openai_001"],"rationale":"Initialize the v1 OpenAI client."},
+      {"file":"app/ai/assistant.py","site_id":"site_openai_py","search":"openai.ChatCompletion.create(\n        model=\"gpt-4o-mini\",\n        messages=msgs,\n        functions=[{\"name\": \"get_order\", \"parameters\": schema}],\n        function_call=\"auto\",\n    )","replace":"client.chat.completions.create(\n        model=\"gpt-4o-mini\",\n        messages=msgs,\n        tools=[{\"type\": \"function\", \"function\": {\"name\": \"get_order\", \"parameters\": schema}}],\n        tool_choice=\"auto\",\n    )","change_ids":["chg_openai_001","chg_openai_002"],"rationale":"Move the request to the tools protocol."},
+      {"file":"app/ai/assistant.py","site_id":"site_openai_py","search":"call = resp[\"choices\"][0][\"message\"].get(\"function_call\")\n    return json.loads(call[\"arguments\"]) if call else None","replace":"calls = resp.choices[0].message.tool_calls or []\n    return json.loads(calls[0].function.arguments) if calls else None","change_ids":["chg_openai_003"],"rationale":"Read structured tool calls from the typed response."},
+      {"file":"web/src/api/chat.ts","site_id":"site_openai_ts","search":"functions: [{ name: \"get_order\", parameters: schema }], function_call: \"auto\"","replace":"tools: [{ type: \"function\", function: { name: \"get_order\", parameters: schema } }], tool_choice: \"auto\"","change_ids":["chg_openai_002"],"rationale":"Update the raw HTTP request fields."}
+    ],
+    "unresolved": []
+  },
+  "verification": {
+    "passed": true,
+    "gates":[
+      {"id":"G1","name":"Exact-match apply","status":"pass","details":["4 edits matched once"]},
+      {"id":"G2","name":"Rust-backed syntax validation","status":"pass","details":["Python and TypeScript accepted"]},
+      {"id":"G3","name":"Scope","status":"pass","details":["only OpenAI call sites changed"]},
+      {"id":"G4","name":"Contract shape","status":"pass","details":["tools/tool_choice request shape accepted"]},
+      {"id":"G5","name":"Residue","status":"pass","details":["no legacy functions/function_call access remains"]},
+      {"id":"G6","name":"GitHub Actions","status":"pending","details":["runs after PR"]}
+    ],
+    "lines_added":8,"lines_removed":8,"ci_run_url":null
+  },
+  "graph":{"nodes":[{"id":"vendor:openai","type":"vendor","data":{"label":"OpenAI API","status":"breaking"}},{"id":"endpoint:chat","type":"endpoint","data":{"label":"POST /v1/chat/completions","status":"impacted"}},{"id":"file:assistant","type":"file","data":{"label":"assistant.py","status":"impacted","path":"app/ai/assistant.py"}},{"id":"file:chat","type":"file","data":{"label":"chat.ts","status":"impacted","path":"web/src/api/chat.ts"}}],"edges":[{"id":"edge-1","source":"file:assistant","target":"endpoint:chat","animated":true,"data":{"impacted":true}},{"id":"edge-2","source":"file:chat","target":"endpoint:chat","animated":true,"data":{"impacted":true}},{"id":"edge-3","source":"endpoint:chat","target":"vendor:openai","data":{}}],"meta":{"scenario":"openai-tools","scanned_files":2,"impacted_sites":2}}
+}

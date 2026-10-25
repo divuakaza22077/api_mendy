@@ -15,6 +15,7 @@ type Store = {
   pr: Record<string, unknown> | null;
   error: string | null;
   setStep: (step: Step) => void;
+  setScenario: (scenarioId: string) => void;
   setSimulation: (payload: { scenarioId: string; changes: Change[]; sites: CallSite[]; impacts: Impact[]; graph: Graph }) => void;
   setPlan: (plan: Plan) => void;
   setPr: (pr: Record<string, unknown>) => void;
@@ -34,6 +35,7 @@ export const useStore = create<Store>((set) => ({
   pr: null,
   error: null,
   setStep: (step) => set({ step }),
+  setScenario: (scenarioId) => set({ scenarioId, changes: [], sites: [], impacts: [], graph: null, plan: null, diffs: [], verification: null, pr: null }),
   setSimulation: (payload) => set({ ...payload, step: 2, error: null }),
   setPlan: (plan) => set({ plan, diffs: plan.diffs, verification: plan.gates, step: 3, error: null }),
   setPr: (pr) => set({ pr, step: 4, error: null }),

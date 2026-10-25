@@ -24,7 +24,7 @@ class CallSite(BaseModel):
     id: str
     file: str
     language: Literal["python", "typescript", "tsx", "javascript"]
-    kind: Literal["sdk_call", "http_call", "field_read"]
+    kind: Literal["sdk_call", "http_call", "field_read", "webhook_handler", "import"]
     vendor: str | None = None
     callee: str | None = None
     url: str | None = None
@@ -75,6 +75,7 @@ class ScenarioSummary(BaseModel):
     vendor: str
     title: str
     stylized: bool
+    description: str = ""
 
 
 class GraphNode(BaseModel):

@@ -14,6 +14,12 @@ const steps: Array<{ id: Step; label: string }> = [
   { id: 4, label: "Approve" },
 ];
 
+const scenarios = [
+  { id: "stripe-paymentintents", label: "Stripe", detail: "Charges → PaymentIntents" },
+  { id: "openai-tools", label: "OpenAI", detail: "functions → tools" },
+  { id: "twilio-signature-v2", label: "Twilio", detail: "webhook signature" },
+];
+
 type SpeechEvent = { results: ArrayLike<ArrayLike<{ transcript: string }>> };
 type SpeechRecognizer = {
   continuous: boolean;
@@ -75,6 +81,12 @@ export default function App() {
     finally { setBusy(false); }
   };
 
+  const chooseScenario = (scenarioId: string) => {
+    store.setScenario(scenarioId);
+    store.setStep(1);
+    store.setError(null);
+  };
+
   const startVoice = () => {
     const speechWindow = window as Window & {
       SpeechRecognition?: SpeechConstructor;
@@ -102,7 +114,8 @@ export default function App() {
     </header>
     <section className="mx-auto mt-7 max-w-7xl">
       <div className="mb-6 flex flex-wrap items-center gap-2">{steps.map((item) => <button key={item.id} onClick={() => store.setStep(item.id)} className={`rounded-full px-4 py-2 text-xs font-bold transition ${store.step === item.id ? "bg-red-500 text-white" : "bg-slate-900 text-slate-500 hover:text-slate-200"}`}><span className="mr-2">0{item.id}</span>{item.label}</button>)}</div>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs uppercase tracking-[0.26em] text-red-300">Python brain · Rust muscles</p><h2 className="mt-2 max-w-3xl text-3xl font-black tracking-tight sm:text-5xl">Dependabot bumps packages. API-Mend fixes the code that breaks.</h2></div><div className="flow-card rounded-2xl px-4 py-3 text-right text-xs"><div className="text-slate-500">Scenario</div><div className="mt-1 font-bold">Stripe Charges → PaymentIntents</div></div></div>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs uppercase tracking-[0.26em] text-red-300">Python brain · Rust muscles</p><h2 className="mt-2 max-w-3xl text-3xl font-black tracking-tight sm:text-5xl">Dependabot bumps packages. API-Mend fixes the code that breaks.</h2></div><div className="flow-card rounded-2xl px-4 py-3 text-right text-xs"><div className="text-slate-500">Scenario</div><div className="mt-1 font-bold">{scenarios.find((scenario) => scenario.id === store.scenarioId)?.detail}</div></div></div>
+      <div className="mb-6 grid gap-2 sm:grid-cols-3">{scenarios.map((scenario) => <button key={scenario.id} onClick={() => chooseScenario(scenario.id)} className={`rounded-2xl border p-3 text-left transition ${store.scenarioId === scenario.id ? "border-red-400 bg-red-500/10" : "border-slate-800 bg-slate-950/50 hover:border-slate-600"}`}><div className="text-sm font-black">{scenario.label}</div><div className="mt-1 text-xs text-slate-500">{scenario.detail}</div></button>)}</div>
       {store.error && <div className="mb-5 flex items-center gap-2 rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200"><CircleAlert size={16} />{store.error}</div>}
       {store.step === 1 && <GraphScreen graph={store.graph} onSimulate={runSimulation} busy={busy} />}
       {store.step === 2 && <BlastScreen changes={store.changes} sites={store.sites} impacts={store.impacts} onPlan={runPlan} busy={busy} />}
@@ -114,9 +127,9 @@ export default function App() {
 
 function GraphScreen({ graph, onSimulate, busy }: { graph: ReturnType<typeof useStore.getState>["graph"]; onSimulate: () => void; busy: boolean }) {
   const initialNodes = useMemo(() => graph ? layoutGraph(graph) : [], [graph]);
-  const [nodes, , onNodesChange] = useNodesState(initialNodes);
-  const [edges, , onEdgesChange] = useEdgesState(graph?.edges ?? []);
-  useEffect(() => { if (graph) { /* graph is already laid out in the memo */ } }, [graph]);
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(graph?.edges ?? []);
+  useEffect(() => { setNodes(initialNodes); setEdges(graph?.edges ?? []); }, [graph, initialNodes, setEdges, setNodes]);
   return <div className="grid gap-5 lg:grid-cols-[1.5fr_.8fr]">
     <div className="flow-card min-h-[520px] overflow-hidden rounded-3xl"><ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} fitView colorMode="dark"><Background color="#1c2a40" /><Controls /><MiniMap pannable zoomable /></ReactFlow></div>
     <div className="flow-card rounded-3xl p-6"><div className="flex items-center gap-2 text-red-300"><Sparkles size={17} /><span className="text-xs font-bold uppercase tracking-[0.2em]">Live migration map</span></div><h3 className="mt-4 text-2xl font-black">See the blast radius before changing code.</h3><p className="mt-3 text-sm leading-6 text-slate-400">API-Mend reads GitHub through the REST Git Data API, then uses Rust-backed ast-grep to map vendor calls without cloning or installing target dependencies.</p><button onClick={onSimulate} disabled={busy} className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl bg-red-500 px-4 py-3 font-bold transition hover:bg-red-400 disabled:opacity-50"><Play size={17} />{busy ? "Tracing calls…" : "Simulate Stripe drift"}</button></div>

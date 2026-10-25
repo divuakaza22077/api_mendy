@@ -23,3 +23,16 @@ def test_ship_defaults_to_dry_run() -> None:
     response = client.post("/ship", json={"scenario_id": "stripe-paymentintents"})
     assert response.status_code == 200
     assert response.json()["dry_run"] is True
+
+
+def test_all_demo_scenarios_have_passing_plans() -> None:
+    scenarios = client.get("/scenarios").json()
+    assert {item["id"] for item in scenarios} == {
+        "stripe-paymentintents",
+        "openai-tools",
+        "twilio-signature-v2",
+    }
+    for scenario in scenarios:
+        response = client.post("/plan", json={"scenario_id": scenario["id"]})
+        assert response.status_code == 200
+        assert response.json()["gates"]["passed"] is True
