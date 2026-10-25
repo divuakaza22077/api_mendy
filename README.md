@@ -1,5 +1,7 @@
 # API-Mend implementation
 
+Repository: https://github.com/divuakaza22077/api_mendy
+
 ## Architecture
 
 **Python Brain, Rust Muscles.**
@@ -37,3 +39,5 @@ uvicorn backend.main:app --reload --port 8000
 pytest -q
 ruff check backend tests
 ```
+
+GitHub Actions runs the same Python checks plus `npm ci` and Oxlint verification on every push and pull request.

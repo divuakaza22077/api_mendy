@@ -10,6 +10,8 @@ vendor drift → exact call-site blast radius → surgical patch → Rust-backed
 
 The demo must prove one complete path in under 60 seconds and be honest about unresolved multi-step migrations.
 
+The initial public repository is live at `divuakaza22077/api_mendy`, with the first CI run passing on October 25, 2026.
+
 ## Architecture rule
 
 ### Python Brain
@@ -69,3 +71,7 @@ The demo must prove one complete path in under 60 seconds and be honest about un
 > “Dependabot updates packages. API-Mend updates the code that breaks when the vendor contract changes — then proves the patch before opening the PR.”
 
 The strongest proof is not the LLM. It is the combination of a real GitHub scan, a visible blast radius, deterministic edits, and a PR that carries verification evidence.
+
+## Next milestone
+
+Choose a small target repository, call `/scan`, render its external API call sites, and use that output to drive the Stripe fixture plan.
