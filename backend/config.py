@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     allowed_origins: str = "http://localhost:5173"
     demo_mode: bool = False
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", populate_by_name=True)
 
     @property
     def origins(self) -> list[str]:
