@@ -33,6 +33,14 @@ Set `GITHUB_TOKEN` in the shell or a local `.env` file copied from `.env.example
 uvicorn backend.main:app --reload --port 8000
 ```
 
+In a second terminal:
+
+```powershell
+npm run dev
+```
+
+Open `http://localhost:5173/?demo=offline` for the deterministic judge-safe demo, or omit `demo=offline` to use the FastAPI backend.
+
 ## Verify
 
 ```powershell
@@ -41,3 +49,9 @@ ruff check backend tests
 ```
 
 GitHub Actions runs the same Python checks plus `npm ci` and Oxlint verification on every push and pull request.
+
+## Deploy
+
+- Frontend: Vercel uses `vercel.json`, `npm run build`, and `frontend/dist`.
+- Backend: build the root `Dockerfile`, expose port `7860`, and inject `GITHUB_TOKEN` only as a backend secret.
+- Keep the frontend in `?demo=offline` mode for a network-safe judging fallback.

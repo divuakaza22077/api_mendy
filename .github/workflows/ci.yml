@@ -33,3 +33,9 @@ jobs:
         run: npm ci
       - name: Verify Oxlint binary
         run: npm exec -- oxlint --version
+      - name: Typecheck frontend
+        run: npm run typecheck
+      - name: Build frontend
+        run: npm run build
+      - name: Lint frontend
+        run: npm run lint:target

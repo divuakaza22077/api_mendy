@@ -3,15 +3,18 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 
 def _run(command: list[str], cwd: str) -> dict[str, object]:
-    executable = shutil.which(command[0])
+    python_module = command[0] == "python"
+    executable = sys.executable if python_module else shutil.which(command[0])
     if not executable:
         return {"tool": command[0], "status": "unavailable", "exit_code": None, "output": ""}
+    args = [executable, "-m", *command[1:]] if python_module else [executable, *command[1:]]
     completed = subprocess.run(
-        [executable, *command[1:]],
+        args,
         cwd=cwd,
         capture_output=True,
         text=True,
@@ -32,9 +35,13 @@ def validate_target(repo_dir: str, paths: list[str]) -> list[dict[str, object]]:
     js_files = [p for p in paths if p.endswith((".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"))]
     reports: list[dict[str, object]] = []
     if python_files:
-        reports.append(_run(["ruff", "check", *python_files], repo_dir))
+        reports.append(_run(["python", "ruff", "check", *python_files], repo_dir))
     if js_files:
-        oxlint = Path(repo_dir) / "node_modules" / ".bin" / ("oxlint.cmd" if os.name == "nt" else "oxlint")
+        local_oxlint = Path(repo_dir) / "node_modules" / ".bin" / ("oxlint.cmd" if os.name == "nt" else "oxlint")
+        project_oxlint = Path(__file__).resolve().parents[2] / "node_modules" / ".bin" / (
+            "oxlint.cmd" if os.name == "nt" else "oxlint"
+        )
+        oxlint = local_oxlint if local_oxlint.exists() else project_oxlint
         if oxlint.exists():
             reports.append(_run([str(oxlint), *js_files], repo_dir))
         else:

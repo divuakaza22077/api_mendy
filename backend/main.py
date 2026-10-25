@@ -24,6 +24,7 @@ from backend.scenarios import (
     summaries,
     verification,
 )
+from backend.verification import verify_patch
 
 settings = get_settings()
 app = FastAPI(title="API-Mend", version="0.1.0")
@@ -103,11 +104,17 @@ async def plan(request: PlanRequest) -> dict[str, object]:
             for path, before in scenario["before"].items()
             if before != patched[path]
         ]
+        report = verify_patch(
+            scenario["before"],
+            patched,
+            patch_plan(request.scenario_id),
+            ["stripe.Charge.create", "/v1/charges", "amount_cents"],
+        )
         return {
             "scenario": request.scenario_id,
             "plan": patch_plan(request.scenario_id).model_dump(),
             "diffs": diffs,
-            "gates": verification(request.scenario_id).model_dump(),
+            "gates": report.model_dump(),
         }
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Unknown scenario") from exc
@@ -125,7 +132,12 @@ async def ship(request: ShipRequest) -> dict[str, object]:
             "approved_by": request.approved_by,
             "scenario": request.scenario_id,
             "files": sorted(patched),
-            "verification": verification(request.scenario_id).model_dump(),
+            "verification": verify_patch(
+                scenario["before"],
+                patched,
+                patch_plan(request.scenario_id),
+                ["stripe.Charge.create", "/v1/charges", "amount_cents"],
+            ).model_dump(),
         }
     if not request.owner or not request.repo:
         raise HTTPException(status_code=422, detail="owner and repo are required when dry_run=false")

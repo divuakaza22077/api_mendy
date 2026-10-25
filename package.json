@@ -2,10 +2,33 @@
   "name": "api-mend-tools",
   "private": true,
   "version": "0.1.0",
+  "type": "module",
   "engines": {
     "node": ">=20"
   },
+  "scripts": {
+    "dev": "vite --config frontend/vite.config.ts",
+    "build": "vite --config frontend/vite.config.ts build",
+    "typecheck": "tsc --noEmit -p frontend/tsconfig.json",
+    "lint:target": "oxlint frontend/src"
+  },
+  "dependencies": {
+    "@dagrejs/dagre": "^2.0.4",
+    "@xyflow/react": "^12.9.0",
+    "lucide-react": "^0.468.0",
+    "react": "^19.2.0",
+    "react-diff-viewer-continued": "^4.0.6",
+    "react-dom": "^19.2.0",
+    "zustand": "^5.0.8"
+  },
   "devDependencies": {
-    "oxlint": "^1.26.0"
+    "@tailwindcss/vite": "^4.1.14",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^5.0.4",
+    "oxlint": "^1.26.0",
+    "tailwindcss": "^4.1.14",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.0"
   }
 }

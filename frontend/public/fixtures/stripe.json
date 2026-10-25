@@ -1,0 +1,24 @@
+{
+  "simulate": {
+    "scenario": "stripe-paymentintents",
+    "changes": [
+      {"id":"chg_stripe_001","vendor":"stripe","change_type":"endpoint_removed","severity":"breaking","endpoint_from":"/v1/charges","endpoint_to":"/v1/payment_intents","sdk_symbol_from":"stripe.Charge.create","sdk_symbol_to":"stripe.PaymentIntent.create","migration_hint":"Move Charges creation to PaymentIntents with confirm=true.","evidence_quote":"We model a future Stripe release on their real migration path.","evidence_url":"https://docs.stripe.com/payments/payment-intents/migration","confidence":0.97},
+      {"id":"chg_stripe_002","vendor":"stripe","change_type":"field_moved","severity":"breaking","endpoint_from":"/v1/charges","endpoint_to":"/v1/payment_intents","field_from":"amount_cents","field_to":"pricing.unit_amount","migration_hint":"Move amount_cents into pricing.unit_amount.","evidence_quote":"The top-level amount_cents parameter has moved to pricing.unit_amount.","evidence_url":"https://docs.stripe.com/payments/payment-intents/migration","confidence":0.95}
+    ],
+    "sites": [
+      {"id":"site_checkout_001","file":"app/billing/checkout.py","language":"python","kind":"sdk_call","vendor":"stripe","callee":"stripe.Charge.create","function":"create_charge","start_line":4,"end_line":8,"snippet":"stripe.Charge.create(amount_cents=order.total_cents, currency=\"usd\", source=order.card_token)","payload_keys":["amount_cents"]},
+      {"id":"site_pay_001","file":"web/src/api/pay.ts","language":"typescript","kind":"http_call","vendor":"stripe","callee":"fetch","url":"https://api.stripe.com/v1/charges","function":"pay","start_line":2,"end_line":7,"snippet":"fetch(\"https://api.stripe.com/v1/charges\", { method: \"POST\" })","payload_keys":["amount_cents"]}
+    ],
+    "impacts":[{"change_id":"chg_stripe_001","site_id":"site_checkout_001","reason":"calls changed SDK method"},{"change_id":"chg_stripe_002","site_id":"site_checkout_001","reason":"sends changed field"},{"change_id":"chg_stripe_001","site_id":"site_pay_001","reason":"calls changed endpoint"},{"change_id":"chg_stripe_002","site_id":"site_pay_001","reason":"sends changed field"}],
+    "graph":{"nodes":[{"id":"vendor:stripe","type":"vendor","data":{"label":"Stripe API","status":"breaking"}},{"id":"endpoint:charges","type":"endpoint","data":{"label":"POST /v1/charges","status":"removed"}},{"id":"file:checkout","type":"file","data":{"label":"checkout.py","status":"impacted","path":"app/billing/checkout.py"}},{"id":"file:pay","type":"file","data":{"label":"pay.ts","status":"impacted","path":"web/src/api/pay.ts"}}],"edges":[{"id":"edge-1","source":"file:checkout","target":"endpoint:charges","animated":true,"data":{"impacted":true}},{"id":"edge-2","source":"file:pay","target":"endpoint:charges","animated":true,"data":{"impacted":true}},{"id":"edge-3","source":"endpoint:charges","target":"vendor:stripe","data":{}}],"meta":{"scenario":"stripe-paymentintents","scanned_files":2,"impacted_sites":2}}
+  },
+  "plan": {
+    "scenario":"stripe-paymentintents",
+    "plan":{"edits":[],"unresolved":[]},
+    "diffs":[
+      {"path":"app/billing/checkout.py","before":"stripe.Charge.create(\n        amount_cents=order.total_cents,\n        currency=\"usd\",\n        source=order.card_token,\n    )","after":"stripe.PaymentIntent.create(\n        pricing={\"unit_amount\": order.total_cents},\n        currency=\"usd\",\n        payment_method=order.card_token,\n        confirm=True,\n    )"},
+      {"path":"web/src/api/pay.ts","before":"fetch(\"https://api.stripe.com/v1/charges\", {\n    method: \"POST\",\n    headers,\n    body: JSON.stringify({ amount_cents: cents, currency: \"usd\", source: token }),\n  })","after":"fetch(\"https://api.stripe.com/v1/payment_intents\", {\n    method: \"POST\",\n    headers,\n    body: JSON.stringify({ pricing: { unit_amount: cents }, currency: \"usd\", payment_method: token, confirm: true }),\n  })"}
+    ],
+    "gates":{"passed":true,"gates":[{"id":"G1","name":"Exact-match apply","status":"pass","details":["3 edits matched once"]},{"id":"G2","name":"Rust-backed syntax validation","status":"pass","details":["ast-grep, ruff, oxlint passed"]},{"id":"G3","name":"Scope","status":"pass","details":["only impacted call sites changed"]},{"id":"G4","name":"Contract shape","status":"pass","details":["new payload shape accepted"]},{"id":"G5","name":"Residue scan","status":"pass","details":["zero legacy residue"]},{"id":"G6","name":"GitHub Actions","status":"pending","details":["runs after PR"]}],"lines_added":6,"lines_removed":5,"ci_run_url":null}
+  }
+}

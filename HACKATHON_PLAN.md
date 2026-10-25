@@ -65,6 +65,8 @@ The initial public repository is live at `divuakaza22077/api_mendy`, with the fi
 - `/ship` is dry-run by default and requires an explicit repository plus `dry_run=false` for a real PR.
 - `ruff` and `oxlint` validate rewritten target files without installing target dependencies.
 - Tests pass with no network dependency.
+- Offline frontend flow renders graph → blast radius → diff gates → approval.
+- Frontend typecheck, production build, and Oxlint pass in CI.
 
 ## Judge positioning
 
