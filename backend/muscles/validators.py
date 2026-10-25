@@ -13,14 +13,24 @@ def _run(command: list[str], cwd: str) -> dict[str, object]:
     if not executable:
         return {"tool": command[0], "status": "unavailable", "exit_code": None, "output": ""}
     args = [executable, "-m", *command[1:]] if python_module else [executable, *command[1:]]
-    completed = subprocess.run(
-        args,
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-        timeout=20,
-        check=False,
-    )
+    try:
+        completed = subprocess.run(
+            args,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=20,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return {
+            "tool": command[0],
+            "status": "fail",
+            "exit_code": None,
+            "output": f"{command[0]} timed out after 20 seconds",
+        }
+    except OSError as exc:
+        return {"tool": command[0], "status": "unavailable", "exit_code": None, "output": str(exc)[:4000]}
     return {
         "tool": command[0],
         "status": "pass" if completed.returncode == 0 else "fail",
@@ -37,13 +47,15 @@ def validate_target(repo_dir: str, paths: list[str]) -> list[dict[str, object]]:
     if python_files:
         reports.append(_run(["python", "ruff", "check", *python_files], repo_dir))
     if js_files:
-        local_oxlint = Path(repo_dir) / "node_modules" / ".bin" / ("oxlint.cmd" if os.name == "nt" else "oxlint")
-        project_oxlint = Path(__file__).resolve().parents[2] / "node_modules" / ".bin" / (
-            "oxlint.cmd" if os.name == "nt" else "oxlint"
-        )
-        oxlint = local_oxlint if local_oxlint.exists() else project_oxlint
-        if oxlint.exists():
-            reports.append(_run([str(oxlint), *js_files], repo_dir))
-        else:
+        binary_name = "oxlint.cmd" if os.name == "nt" else "oxlint"
+        candidates = [
+            Path(repo_dir) / "node_modules" / ".bin" / binary_name,
+            Path(__file__).resolve().parents[2] / "node_modules" / ".bin" / binary_name,
+            Path(__file__).resolve().parents[2] / "tooling" / "node_modules" / ".bin" / binary_name,
+        ]
+        oxlint = next((candidate for candidate in candidates if candidate.exists()), None)
+        if oxlint is None:
             reports.append({"tool": "oxlint", "status": "unavailable", "exit_code": None, "output": ""})
+        else:
+            reports.append(_run([str(oxlint), *js_files], repo_dir))
     return reports

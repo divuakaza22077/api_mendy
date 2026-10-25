@@ -4,7 +4,7 @@
   "title": "Twilio webhook signature hardening",
   "stylized": true,
   "before": {
-    "app/webhooks/twilio_sms.py": "import os\nfrom twilio.request_validator import RequestValidator\n\nvalidator = RequestValidator(os.environ[\"TWILIO_AUTH_TOKEN\"])\n\nasync def sms(request):\n    form = dict(await request.form())\n    signature = request.headers.get(\"X-Twilio-Signature\", \"\")\n    if not validator.validate(str(request.url), form, signature):\n        return {\"status\": 403}\n    return {\"status\": 200}\n"
+    "app/webhooks/twilio_sms.py": "import os\n\nfrom twilio.request_validator import RequestValidator\n\nvalidator = RequestValidator(os.environ[\"TWILIO_AUTH_TOKEN\"])\n\n\nasync def sms(request):\n    form = dict(await request.form())\n    signature = request.headers.get(\"X-Twilio-Signature\", \"\")\n    if not validator.validate(str(request.url), form, signature):\n        return {\"status\": 403}\n    return {\"status\": 200}\n"
   },
   "changes": [
     {

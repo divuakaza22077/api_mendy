@@ -4,7 +4,7 @@
   "title": "OpenAI functions → tools",
   "stylized": false,
   "before": {
-    "app/ai/assistant.py": "import json\nimport openai\n\ndef route(msgs, schema):\n    resp = openai.ChatCompletion.create(\n        model=\"gpt-4o-mini\",\n        messages=msgs,\n        functions=[{\"name\": \"get_order\", \"parameters\": schema}],\n        function_call=\"auto\",\n    )\n    call = resp[\"choices\"][0][\"message\"].get(\"function_call\")\n    return json.loads(call[\"arguments\"]) if call else None\n",
+    "app/ai/assistant.py": "import json\n\nimport openai\n\n\ndef route(msgs, schema):\n    resp = openai.ChatCompletion.create(\n        model=\"gpt-4o-mini\",\n        messages=msgs,\n        functions=[{\"name\": \"get_order\", \"parameters\": schema}],\n        function_call=\"auto\",\n    )\n    call = resp[\"choices\"][0][\"message\"].get(\"function_call\")\n    return json.loads(call[\"arguments\"]) if call else None\n",
     "web/src/api/chat.ts": "export async function chat(messages: unknown[], schema: unknown) {\n  return fetch(\"https://api.openai.com/v1/chat/completions\", {\n    method: \"POST\",\n    body: JSON.stringify({ model: \"gpt-4o-mini\", messages, functions: [{ name: \"get_order\", parameters: schema }], function_call: \"auto\" }),\n  });\n}\n"
   },
   "changes": [

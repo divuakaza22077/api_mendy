@@ -73,8 +73,14 @@ def patch_plan(scenario_id: str) -> PatchPlan:
 
 def apply_plan(scenario_id: str) -> dict[str, str]:
     scenario = get_scenario(scenario_id)
-    output = dict(scenario["before"])
+    return apply_plan_to_files(scenario_id, scenario["before"])
+
+
+def apply_plan_to_files(scenario_id: str, files: dict[str, str]) -> dict[str, str]:
+    output = dict(files)
     for edit in patch_plan(scenario_id).edits:
+        if edit.file not in output:
+            raise ValueError(f"{edit.file}: target file is missing")
         if output[edit.file].count(edit.search) != 1:
             raise ValueError(f"{edit.file}: search did not match exactly once")
         output[edit.file] = output[edit.file].replace(edit.search, edit.replace, 1)

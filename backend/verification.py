@@ -24,6 +24,7 @@ def verify_patch(
 ) -> VerificationReport:
     gates: list[Gate] = []
     exact_ok = True
+    expected = dict(before)
     for edit in plan.edits:
         count = before.get(edit.file, "").count(edit.search)
         if count != 1:
@@ -36,6 +37,18 @@ def verify_patch(
                     details=[f"{edit.file}: expected one match, found {count}"],
                 )
             )
+        else:
+            expected[edit.file] = expected[edit.file].replace(edit.search, edit.replace, 1)
+    if exact_ok and expected != after:
+        exact_ok = False
+        gates.append(
+            Gate(
+                id="G1",
+                name="Exact-match apply",
+                status="fail",
+                details=["actual output differs from the deterministic result of applying every edit"],
+            )
+        )
     if exact_ok:
         gates.append(
             Gate(
@@ -61,13 +74,14 @@ def verify_patch(
             gates.append(Gate(id="G2", name="Rust-backed syntax validation", status="fail", details=details))
         else:
             unavailable = [report["tool"] for report in reports if report["status"] == "unavailable"]
-            status = "warn" if unavailable else "pass"
+            status = "fail" if unavailable else "pass"
             details = [f"{report['tool']}: {report['status']}" for report in reports]
             gates.append(Gate(id="G2", name="Rust-backed syntax validation", status=status, details=details))
 
-    changed_paths = {path for path in before if before[path] != after.get(path)}
+    all_paths = set(before) | set(after)
+    changed_paths = {path for path in all_paths if before.get(path) != after.get(path)}
     planned_paths = {edit.file for edit in plan.edits}
-    scope_ok = changed_paths <= planned_paths
+    scope_ok = changed_paths == planned_paths
     gates.append(
         Gate(
             id="G3",
@@ -109,5 +123,7 @@ def verify_patch(
         path_added, path_removed = _line_delta(before[path], after[path])
         added += path_added
         removed += path_removed
-    passed = all(gate.status in {"pass", "warn", "pending"} for gate in gates)
+    passed = not plan.unresolved and all(
+        gate.status == "pass" for gate in gates if gate.id != "G6"
+    )
     return VerificationReport(passed=passed and syntax_ok, gates=gates, lines_added=added, lines_removed=removed)

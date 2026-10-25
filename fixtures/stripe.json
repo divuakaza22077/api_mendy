@@ -4,11 +4,11 @@
   "title": "Stripe Charges → PaymentIntents",
   "stylized": true,
   "before": {
-    "app/billing/checkout.py": "import stripe\n\ndef create_charge(order):\n    charge = stripe.Charge.create(\n        amount_cents=order.total_cents,\n        currency=\"usd\",\n        source=order.card_token,\n    )\n    return charge[\"id\"]\n",
+    "app/billing/checkout.py": "import stripe\n\n\ndef create_charge(order):\n    charge = stripe.Charge.create(\n        amount_cents=order.total_cents,\n        currency=\"usd\",\n        source=order.card_token,\n    )\n    return charge[\"id\"]\n",
     "web/src/api/pay.ts": "export async function pay(cents: number, token: string, headers: Record<string, string>) {\n  const res = await fetch(\"https://api.stripe.com/v1/charges\", {\n    method: \"POST\",\n    headers,\n    body: JSON.stringify({ amount_cents: cents, currency: \"usd\", source: token }),\n  });\n  return res.json();\n}\n"
   },
   "after": {
-    "app/billing/checkout.py": "import stripe\n\ndef create_charge(order):\n    charge = stripe.PaymentIntent.create(\n        pricing={\"unit_amount\": order.total_cents},\n        currency=\"usd\",\n        payment_method=order.card_token,\n        confirm=True,\n    )\n    return charge[\"id\"]\n",
+    "app/billing/checkout.py": "import stripe\n\n\ndef create_charge(order):\n    charge = stripe.PaymentIntent.create(\n        pricing={\"unit_amount\": order.total_cents},\n        currency=\"usd\",\n        payment_method=order.card_token,\n        confirm=True,\n    )\n    return charge[\"id\"]\n",
     "web/src/api/pay.ts": "export async function pay(cents: number, token: string, headers: Record<string, string>) {\n  const res = await fetch(\"https://api.stripe.com/v1/payment_intents\", {\n    method: \"POST\",\n    headers,\n    body: JSON.stringify({ pricing: { unit_amount: cents }, currency: \"usd\", payment_method: token, confirm: true }),\n  });\n  return res.json();\n}\n"
   },
   "changes": [

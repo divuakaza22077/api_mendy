@@ -46,13 +46,14 @@ The initial public repository is live at `divuakaza22077/api_mendy`, with the fi
 - Twilio webhook signature scenario, clearly marked stylized where necessary.
 - LLM-generated `PatchPlan` behind a timeout/cache boundary.
 - Frontend graph/diff/approval screens.
+- Optional Hugging Face inference is deferred; deterministic fixtures and verification remain authoritative.
 
 ### Do not build before the first live rehearsal
 
 - GitHub App installation flow.
 - Multi-repository orchestration.
 - Runtime traffic inference.
-- Authentication/user accounts.
+- Full user accounts or GitHub App installation flow.
 - A claim that every API migration is automatically solvable.
 
 ## Acceptance criteria
@@ -67,6 +68,10 @@ The initial public repository is live at `divuakaza22077/api_mendy`, with the fi
 - Tests pass with no network dependency.
 - Offline frontend flow renders graph → blast radius → diff gates → approval.
 - Frontend typecheck, production build, and Oxlint pass in CI.
+- Public backend deployments remain dry-run-only unless an allowlisted repository and explicit write flag are configured.
+- Real writes also require both `API_MEND_API_KEY` and `GITHUB_TOKEN`; health readiness stays false until both are present.
+- Docker CI builds the backend image and smoke-tests `/livez`, `/readyz`, and `/plan`.
+- `/drift` and `backend.drift` provide a deterministic OpenAPI breaking-change collector for removed endpoints, methods, and request fields.
 
 ## Judge positioning
 

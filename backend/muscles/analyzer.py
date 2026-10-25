@@ -24,11 +24,6 @@ def language_for(path: str) -> str:
     return "javascript"
 
 
-def _line_number(source: str, snippet: str) -> int:
-    index = source.find(snippet)
-    return source.count("\n", 0, index) + 1 if index >= 0 else 1
-
-
 def _vendor(text: str) -> str | None:
     lowered = text.lower()
     for name in VENDOR_NAMES:
@@ -54,12 +49,17 @@ def analyze_source(path: str, source: str) -> list[CallSite]:
     sites: list[CallSite] = []
     for node in root.find_all(kind=call_kind):
         snippet = node.text().strip()
-        vendor = _vendor(snippet)
         url_match = URL_RE.search(snippet)
+        callee = snippet.split("(", 1)[0].strip()
+        vendor = _vendor(callee) or (_vendor(url_match.group(0)) if url_match else None)
         if not vendor and not url_match:
             continue
-        line = _line_number(source, snippet)
-        site_id = hashlib.sha1(f"{path}:{line}:{snippet}".encode()).hexdigest()[:12]
+        node_range = node.range()
+        start_byte = node_range.start.index
+        end_byte = node_range.end.index
+        start_line = node_range.start.line + 1
+        end_line = node_range.end.line + 1
+        site_id = hashlib.sha1(f"{path}:{start_byte}:{end_byte}:{snippet}".encode()).hexdigest()[:12]
         sites.append(
             CallSite(
                 id=site_id,
@@ -67,10 +67,12 @@ def analyze_source(path: str, source: str) -> list[CallSite]:
                 language=language_for(path),
                 kind=_site_kind(snippet),
                 vendor=vendor,
-                callee=snippet.split("(", 1)[0].strip(),
+                callee=callee,
                 url=url_match.group(0) if url_match else None,
-                start_line=line,
-                end_line=line + snippet.count("\n"),
+                start_line=start_line,
+                end_line=end_line,
+                start_byte=start_byte,
+                end_byte=end_byte,
                 snippet=snippet[:2000],
                 payload_keys=sorted(
                     set(

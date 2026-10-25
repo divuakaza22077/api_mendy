@@ -1,11 +1,35 @@
 {
   "id": "twilio-signature-v2",
-  "before": {"app/webhooks/twilio_sms.py":"signature = request.headers.get(\"X-Twilio-Signature\", \"\")\nif not validator.validate(str(request.url), form, signature):"},
-  "after": {"app/webhooks/twilio_sms.py":"signature = request.headers.get(\"X-Twilio-Signature-256\", \"\")\npublic_url = os.environ[\"PUBLIC_WEBHOOK_BASE\"] + request.url.path\nif not validator.validate(public_url, form, signature):"},
-  "changes": [{"id":"chg_twilio_001","vendor":"twilio","change_type":"webhook_signature_changed","severity":"breaking","migration_hint":"Use the hardened signature header and original public URL.","evidence_quote":"Signature validation depends on the exact URL and request parameters.","evidence_url":"https://www.twilio.com/docs/usage/webhooks/webhooks-security","confidence":0.9}],
-  "sites": [{"id":"site_twilio_webhook","file":"app/webhooks/twilio_sms.py","language":"python","kind":"webhook_handler","vendor":"twilio","callee":"validator.validate","function":"sms","start_line":6,"end_line":10,"snippet":"validator.validate(str(request.url), form, signature)","payload_keys":[]}],
-  "impacts": [{"change_id":"chg_twilio_001","site_id":"site_twilio_webhook","reason":"verifies changed signature"}],
-  "graph":{"nodes":[{"id":"vendor:twilio","type":"vendor","data":{"label":"Twilio Webhooks","status":"breaking"}},{"id":"endpoint:sms","type":"endpoint","data":{"label":"POST /sms","status":"impacted"}},{"id":"file:twilio","type":"file","data":{"label":"twilio_sms.py","status":"impacted","path":"app/webhooks/twilio_sms.py"}}],"edges":[{"id":"edge-1","source":"file:twilio","target":"endpoint:sms","animated":true,"data":{"impacted":true}},{"id":"edge-2","source":"endpoint:sms","target":"vendor:twilio","data":{}}],"meta":{"scenario":"twilio-signature-v2","scanned_files":1,"impacted_sites":1}},
-  "patch_plan":{"edits":[],"unresolved":[]},
-  "verification":{"passed":true,"gates":[{"id":"G1","name":"Exact-match apply","status":"pass","details":["cached fixture"]},{"id":"G2","name":"Rust-backed syntax validation","status":"pass","details":["cached fixture"]},{"id":"G3","name":"Scope","status":"pass","details":["cached fixture"]},{"id":"G4","name":"Contract shape","status":"pass","details":["cached fixture"]},{"id":"G5","name":"Residue","status":"pass","details":["cached fixture"]},{"id":"G6","name":"GitHub Actions","status":"pending","details":["runs after PR"]}],"lines_added":0,"lines_removed":0,"ci_run_url":null}
+  "vendor": "twilio",
+  "title": "Twilio webhook signature hardening",
+  "stylized": true,
+  "before": {
+    "app/webhooks/twilio_sms.py": "import os\n\nfrom twilio.request_validator import RequestValidator\n\nvalidator = RequestValidator(os.environ[\"TWILIO_AUTH_TOKEN\"])\n\n\nasync def sms(request):\n    form = dict(await request.form())\n    signature = request.headers.get(\"X-Twilio-Signature\", \"\")\n    if not validator.validate(str(request.url), form, signature):\n        return {\"status\": 403}\n    return {\"status\": 200}\n"
+  },
+  "changes": [
+    {
+      "id":"chg_twilio_001",
+      "vendor":"twilio",
+      "change_type":"webhook_signature_changed",
+      "severity":"breaking",
+      "field_from":"X-Twilio-Signature",
+      "field_to":"X-Twilio-Signature-256",
+      "migration_hint":"Read the v2 signature header and validate against the original public URL.",
+      "evidence_quote":"Signature validation depends on the exact URL and request parameters.",
+      "evidence_url":"https://www.twilio.com/docs/usage/webhooks/webhooks-security",
+      "confidence":0.9
+    }
+  ],
+  "sites":[
+    {"id":"site_twilio_webhook","file":"app/webhooks/twilio_sms.py","language":"python","kind":"webhook_handler","vendor":"twilio","callee":"validator.validate","function":"sms","start_line":6,"end_line":10,"snippet":"validator.validate(str(request.url), form, signature)","payload_keys":[]}
+  ],
+  "impacts":[{"change_id":"chg_twilio_001","site_id":"site_twilio_webhook","reason":"verifies changed signature"}],
+  "patch_plan":{
+    "edits":[
+      {"file":"app/webhooks/twilio_sms.py","site_id":"site_twilio_webhook","search":"signature = request.headers.get(\"X-Twilio-Signature\", \"\")\n    if not validator.validate(str(request.url), form, signature):","replace":"signature = request.headers.get(\"X-Twilio-Signature-256\", \"\")\n    public_url = os.environ[\"PUBLIC_WEBHOOK_BASE\"] + request.url.path\n    if not validator.validate(public_url, form, signature):","change_ids":["chg_twilio_001"],"rationale":"Use the hardened signature header and proxy-safe public URL."}
+    ],
+    "unresolved":[]
+  },
+  "verification":{"passed":true,"gates":[{"id":"G1","name":"Exact-match apply","status":"pass","details":["1 edit matched once"]},{"id":"G2","name":"Rust-backed syntax validation","status":"pass","details":["Python accepted"]},{"id":"G3","name":"Scope","status":"pass","details":["only webhook handler changed"]},{"id":"G4","name":"Contract shape","status":"pass","details":["signature header shape updated"]},{"id":"G5","name":"Residue","status":"pass","details":["old signature header removed"]},{"id":"G6","name":"GitHub Actions","status":"pending","details":["runs after PR"]}],"lines_added":2,"lines_removed":1,"ci_run_url":null},
+  "graph":{"nodes":[{"id":"vendor:twilio","type":"vendor","data":{"label":"Twilio Webhooks","status":"breaking"}},{"id":"endpoint:sms","type":"endpoint","data":{"label":"POST /sms","status":"impacted"}},{"id":"file:twilio","type":"file","data":{"label":"twilio_sms.py","status":"impacted","path":"app/webhooks/twilio_sms.py"}}],"edges":[{"id":"edge-1","source":"file:twilio","target":"endpoint:sms","animated":true,"data":{"impacted":true}},{"id":"edge-2","source":"endpoint:sms","target":"vendor:twilio","data":{}}],"meta":{"scenario":"twilio-signature-v2","scanned_files":1,"impacted_sites":1}}
 }

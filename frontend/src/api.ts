@@ -1,15 +1,36 @@
 import type { Plan, Simulated } from "./types";
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000";
 export const offline = new URLSearchParams(window.location.search).get("demo") === "offline";
+const configuredApiBase = import.meta.env.VITE_API_BASE?.trim();
+const API_BASE = configuredApiBase || (import.meta.env.DEV ? "http://localhost:8000" : "");
+export const apiConfigured = offline || Boolean(API_BASE);
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
-  });
+  if (!API_BASE) throw new Error("Live API endpoint is not configured. Set VITE_API_BASE and rebuild the frontend.");
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 15_000);
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      ...init,
+      signal: init?.signal ?? controller.signal,
+      headers: { "Content-Type": "application/json", ...init?.headers },
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") throw new Error("The API request timed out.");
+    throw new Error("The API is unavailable. Check the backend URL and CORS configuration.");
+  } finally {
+    window.clearTimeout(timeout);
+  }
   if (!response.ok) {
-    throw new Error((await response.text()) || `Request failed: ${response.status}`);
+    const body = await response.text();
+    try {
+      const parsed = JSON.parse(body) as { detail?: string };
+      throw new Error(parsed.detail || `Request failed (${response.status})`);
+    } catch (error) {
+      if (error instanceof Error && !error.message.startsWith("Unexpected")) throw error;
+      throw new Error(body || `Request failed (${response.status})`);
+    }
   }
   return response.json() as Promise<T>;
 }

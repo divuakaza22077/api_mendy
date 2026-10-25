@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: api-mend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -19,8 +23,9 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
       - name: Install Python dependencies
-        run: python -m pip install -r backend/requirements.txt
+        run: python -m pip install -r backend/requirements-dev.txt
       - name: Run tests
         run: python -m pytest -q
       - name: Run Ruff
@@ -31,6 +36,8 @@ jobs:
           cache: npm
       - name: Install JavaScript tooling
         run: npm ci
+      - name: Audit production JavaScript dependencies
+        run: npm audit --omit=dev
       - name: Verify Oxlint binary
         run: npm exec -- oxlint --version
       - name: Typecheck frontend
@@ -39,3 +46,35 @@ jobs:
         run: npm run build
       - name: Lint frontend
         run: npm run lint:target
+      - name: Build backend image
+        run: docker build --tag api-mend:ci .
+      - name: Smoke-test backend image
+        shell: bash
+        run: |
+          docker run --detach --rm --name api-mend-ci -p 7860:7860 -e DEMO_MODE=true api-mend:ci
+          trap 'docker stop api-mend-ci' EXIT
+          healthy=0
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:7860/livez > /tmp/livez.json; then
+              cat /tmp/livez.json
+              healthy=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$healthy" -ne 1 ]; then
+            docker logs api-mend-ci
+            exit 1
+          fi
+          curl --fail --silent --show-error http://127.0.0.1:7860/readyz > /tmp/readyz.json
+          cat /tmp/readyz.json
+          curl --fail --silent --show-error -X POST http://127.0.0.1:7860/plan \
+            -H 'Content-Type: application/json' \
+            -d '{"scenario_id":"stripe-paymentintents"}' > /tmp/plan.json
+          cat /tmp/plan.json
+          python - <<'PY'
+          import json
+          with open('/tmp/plan.json', encoding='utf-8') as handle:
+              payload = json.load(handle)
+          assert payload['gates']['passed'] is True
+          PY
