@@ -1,0 +1,11 @@
+{
+  "name": "api-mend-tools",
+  "private": true,
+  "version": "0.1.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "oxlint": "^1.26.0"
+  }
+}
